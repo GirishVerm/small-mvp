@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "command": "/path/to/claude-analytics-hook.sh PreToolUse"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "command": "/path/to/claude-analytics-hook.sh PostToolUse"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "command": "/path/to/claude-analytics-hook.sh Stop"
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "command": "/path/to/claude-analytics-hook.sh Notification"
+      }
+    ]
+  }
+}
