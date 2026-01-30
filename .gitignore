@@ -1,0 +1,19 @@
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Local data
+data/
+
+# OS and editor
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# Optional: keep sample projects out if they ever appear under this tree
+# (Desktop sample projects are outside this dir; repo root handles those)
