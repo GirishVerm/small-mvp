@@ -25,6 +25,10 @@ const migrations = [
   'ALTER TABLE tool_events ADD COLUMN output_chars INTEGER DEFAULT 0',
   'ALTER TABLE tool_events ADD COLUMN est_input_tokens INTEGER DEFAULT 0',
   'ALTER TABLE tool_events ADD COLUMN est_output_tokens INTEGER DEFAULT 0',
+  'ALTER TABLE session_metrics ADD COLUMN rework_index REAL DEFAULT 0',
+  'ALTER TABLE session_metrics ADD COLUMN bash_retries INTEGER DEFAULT 0',
+  'ALTER TABLE session_metrics ADD COLUMN avg_tool_duration_ms REAL DEFAULT 0',
+  'ALTER TABLE tool_events ADD COLUMN task_id TEXT',
 ];
 
 for (const sql of migrations) {

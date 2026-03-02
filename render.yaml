@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: claude-analytics
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+
+    # SQLite lives on a persistent disk so data survives redeploys.
+    # Render mounts this at /data; ANALYTICS_DB_PATH points the app there.
+    disk:
+      name: analytics-data
+      mountPath: /data
+      sizeGB: 1
+
+    envVars:
+      - key: PORT
+        value: 10000          # Render expects 10000 by default
+
+      - key: ANALYTICS_DB_PATH
+        value: /data/analytics.db
+
+      # --- Set these in the Render dashboard after deploy ---
+      - key: LINEAR_API_KEY
+        sync: false           # your lin_api_... key
+
+      - key: LINEAR_SPRINT_ISSUE_ID
+        sync: false           # optional: issue ID for sprint summary posts
+
+      - key: GITHUB_WEBHOOK_SECRET
+        sync: false           # secret you set when creating the GitHub webhook
+
+      - key: LINEAR_WEBHOOK_SECRET
+        sync: false           # secret you set when creating the Linear webhook

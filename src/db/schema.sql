@@ -90,6 +90,9 @@ CREATE TABLE IF NOT EXISTS session_metrics (
   productivity_score REAL DEFAULT 0,
   files_touched INTEGER DEFAULT 0,
   tool_diversity INTEGER DEFAULT 0,
+  rework_index REAL DEFAULT 0,
+  bash_retries INTEGER DEFAULT 0,
+  avg_tool_duration_ms REAL DEFAULT 0,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (session_id) REFERENCES sessions(id)
 );

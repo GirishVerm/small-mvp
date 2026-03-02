@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asteroid Dodge</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-container">
+
+    <!-- Canvas lives outside screens so it renders as background for all overlays -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Main Menu Screen -->
+    <div id="screen-menu" class="screen active">
+      <h1 class="game-title">ASTEROID<br>DODGE</h1>
+      <p class="subtitle">Navigate the debris field. Survive as long as you can.</p>
+      <button id="btn-start" class="btn-primary">LAUNCH</button>
+      <div class="high-score-display">
+        BEST: <span id="menu-high-score">0</span>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="screen-game" class="screen">
+      <div id="hud">
+        <div class="hud-item">
+          <span class="hud-label">SCORE</span>
+          <span id="hud-score" class="hud-value">0</span>
+        </div>
+        <div class="hud-item hud-lives">
+          <span class="hud-label">LIVES</span>
+          <span id="hud-lives" class="hud-value">&#9651;&#9651;&#9651;</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">LEVEL</span>
+          <span id="hud-level" class="hud-value">1</span>
+        </div>
+      </div>
+      <p class="pause-hint">P — pause</p>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="screen-gameover" class="screen">
+      <h2 class="screen-title">GAME OVER</h2>
+      <div class="score-summary">
+        <div class="score-row">
+          <span class="score-label">SCORE</span>
+          <span id="go-score" class="score-value">0</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">BEST</span>
+          <span id="go-high-score" class="score-value">0</span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">LEVEL</span>
+          <span id="go-level" class="score-value">1</span>
+        </div>
+      </div>
+      <button id="btn-restart" class="btn-primary">TRY AGAIN</button>
+      <button id="btn-menu" class="btn-secondary">MAIN MENU</button>
+    </div>
+
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

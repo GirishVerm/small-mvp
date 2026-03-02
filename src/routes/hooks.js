@@ -1,7 +1,8 @@
 const express = require('express');
 const db = require('../db');
 const { extractTaskId } = require('../services/correlation');
-const { estimateTokens, computeSessionMetrics } = require('../services/metrics');
+const { estimateTokens, computeSessionMetrics, computeTaskMetrics, getTaskTokenUsage } = require('../services/metrics');
+const { syncHealthLabel, syncCostComment, syncSprintSummary } = require('../services/linear');
 
 const router = express.Router();
 
@@ -13,14 +14,15 @@ const upsertSession = db.prepare(`
   VALUES (?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     ended_at = excluded.ended_at,
-    task_id = COALESCE(sessions.task_id, excluded.task_id),
+    branch = COALESCE(excluded.branch, sessions.branch),
+    task_id = COALESCE(excluded.task_id, sessions.task_id),
     model = COALESCE(excluded.model, sessions.model)
 `);
 
 const insertToolEvent = db.prepare(`
   INSERT INTO tool_events (session_id, hook_type, tool_name, file_path, timestamp,
-    input_summary, output_summary, input_chars, output_chars, est_input_tokens, est_output_tokens)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    input_summary, output_summary, input_chars, output_chars, est_input_tokens, est_output_tokens, task_id)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const insertWebhookLog = db.prepare(`
@@ -98,7 +100,7 @@ router.post('/', (req, res) => {
     const now = timestamp || new Date().toISOString();
     const taskId = extractTaskId(branch);
 
-    // Upsert session (with model)
+    // Upsert session
     upsertSession.run(sessionId, projectDir || null, branch || null, now, now, taskId, model || null);
 
     // Insert tool event (for PreToolUse and PostToolUse)
@@ -119,7 +121,8 @@ router.post('/', (req, res) => {
         inChars,
         outChars,
         estIn,
-        estOut
+        estOut,
+        taskId || null
       );
 
       // Calculate duration for PostToolUse
@@ -130,6 +133,26 @@ router.post('/', (req, res) => {
           if (durationMs >= 0) {
             updateDuration.run(durationMs, result.lastInsertRowid);
           }
+        }
+
+        // Sync Linear every 5 PostToolUse events (real-time observability)
+        const SYNC_EVERY_N_TOOLS = 5;
+        const { total_post } = db.prepare(
+          `SELECT COUNT(*) as total_post FROM tool_events WHERE task_id = ? AND hook_type = 'PostToolUse'`
+        ).get(taskId || '');
+        if (taskId && total_post % SYNC_EVERY_N_TOOLS === 0) {
+          try {
+            const metrics = computeTaskMetrics(taskId);
+            if (process.env.LINEAR_API_KEY) {
+              const apiKey = process.env.LINEAR_API_KEY;
+              syncHealthLabel(apiKey, taskId, metrics)
+                .then(healthLevel => {
+                  const tokenUsage = getTaskTokenUsage(taskId);
+                  return syncCostComment(apiKey, taskId, healthLevel, tokenUsage);
+                })
+                .catch(err => console.error('[LINEAR] Tool-sync error:', err.message));
+            }
+          } catch (e) { /* non-critical */ }
         }
       }
     }
@@ -152,9 +175,20 @@ router.post('/', (req, res) => {
 
       updateSessionTurnCounters.run(turnNumber, turnInputTokens, turnOutputTokens, sessionId);
 
-      // Recompute quality metrics every 5 turns
-      if (turnNumber % 5 === 0) {
-        try { computeSessionMetrics(sessionId); } catch (e) { /* non-critical */ }
+      // Recompute quality metrics every 3 turns (and on first turn for fast feedback)
+      if (taskId && (turnNumber === 1 || turnNumber % 2 === 0)) {
+        try {
+          const metrics = computeTaskMetrics(taskId);
+          if (process.env.LINEAR_API_KEY) {
+            const apiKey = process.env.LINEAR_API_KEY;
+            syncHealthLabel(apiKey, taskId, metrics)
+              .then(healthLevel => {
+                const tokenUsage = getTaskTokenUsage(taskId);
+                return syncCostComment(apiKey, taskId, healthLevel, tokenUsage);
+              })
+              .catch(err => console.error('[LINEAR] Sync error:', err.message));
+          }
+        } catch (e) { /* non-critical */ }
       }
     }
 
@@ -260,6 +294,54 @@ router.get('/metrics/quality', (req, res) => {
     LIMIT 50
   `).all();
   res.json(rows);
+});
+
+// Manual / on-demand label sync
+router.post('/sync-label/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  const apiKey = process.env.LINEAR_API_KEY;
+  if (!apiKey) return res.status(400).json({ error: 'LINEAR_API_KEY not set' });
+
+  try {
+    const session = db.prepare('SELECT task_id FROM sessions WHERE id = ?').get(sessionId);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    if (!session.task_id) return res.status(400).json({ error: 'Session has no linked task' });
+
+    const metrics = computeSessionMetrics(sessionId);
+    const healthLevel = await syncHealthLabel(apiKey, session.task_id, metrics);
+    const tokenUsage = getTaskTokenUsage(session.task_id);
+    await syncCostComment(apiKey, session.task_id, healthLevel, tokenUsage);
+    res.json({ ok: true, task_id: session.task_id, metrics, tokenUsage });
+  } catch (err) {
+    console.error('[LINEAR] Manual sync error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET per-task token usage and estimated cost
+router.get('/metrics/task/:taskId', (req, res) => {
+  try {
+    const tokenUsage = getTaskTokenUsage(req.params.taskId);
+    res.json(tokenUsage);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST sprint summary sync to Linear
+router.post('/metrics/sprint-sync', async (req, res) => {
+  const apiKey = process.env.LINEAR_API_KEY;
+  const issueId = process.env.LINEAR_SPRINT_ISSUE_ID;
+  if (!apiKey) return res.status(400).json({ error: 'LINEAR_API_KEY not set' });
+  if (!issueId) return res.status(400).json({ error: 'LINEAR_SPRINT_ISSUE_ID not set' });
+
+  try {
+    const result = await syncSprintSummary(apiKey, issueId);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[SPRINT SYNC ERROR]', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

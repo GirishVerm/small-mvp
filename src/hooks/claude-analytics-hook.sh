@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Claude Analytics Hook Script
-# Usage: claude-analytics-hook.sh <hook_type>
 # Called by Claude Code hooks with event data on stdin (JSON)
 #
-# Environment variables available from Claude Code:
-#   CLAUDE_SESSION_ID - unique session identifier
-#   CLAUDE_MODEL      - model being used (if set)
+# JSON fields available on stdin:
+#   session_id, cwd, hook_event_name, tool_name, tool_input, tool_response (PostToolUse)
+#
+# Environment variables from Claude Code:
+#   CLAUDE_PROJECT_DIR - project root directory
 
 ANALYTICS_URL="${CLAUDE_ANALYTICS_URL:-http://localhost:3000}"
 HOOK_TYPE="$1"
@@ -13,14 +14,19 @@ HOOK_TYPE="$1"
 # Read the hook input from stdin
 INPUT=$(cat)
 
+# Extract session_id from JSON (not from env var)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"' 2>/dev/null)
+
 # Extract tool name from the JSON input
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null)
-STOP_REASON=$(echo "$INPUT" | jq -r '.stop_reason // empty' 2>/dev/null)
+
+# For Stop events
+STOP_REASON=$(echo "$INPUT" | jq -r '.stop_hook_active // empty' 2>/dev/null)
 
 # Capture full char counts before truncation
-INPUT_RAW=$(echo "$INPUT" | jq -r '.tool_input | tostring' 2>/dev/null)
-OUTPUT_RAW=$(echo "$INPUT" | jq -r '.tool_output // empty' 2>/dev/null)
+INPUT_RAW=$(echo "$INPUT" | jq -r '(.tool_input // "") | tostring' 2>/dev/null)
+OUTPUT_RAW=$(echo "$INPUT" | jq -r '(.tool_response // "") | tostring' 2>/dev/null)
 INPUT_CHARS=${#INPUT_RAW}
 OUTPUT_CHARS=${#OUTPUT_RAW}
 
@@ -28,12 +34,13 @@ OUTPUT_CHARS=${#OUTPUT_RAW}
 INPUT_SUMMARY=$(echo "$INPUT_RAW" | head -c 2000)
 OUTPUT_SUMMARY=$(echo "$OUTPUT_RAW" | head -c 2000)
 
-# Get git branch
+# Get git branch and project info
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
-PROJECT_DIR=$(pwd)
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-SESSION_ID="${CLAUDE_SESSION_ID:-unknown}"
-MODEL="${CLAUDE_MODEL:-}"
+
+# Model is not directly available as env var; extract from transcript if needed
+MODEL=""
 
 # Build JSON payload
 PAYLOAD=$(jq -n \
