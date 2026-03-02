@@ -8,7 +8,7 @@
 # Environment variables from Claude Code:
 #   CLAUDE_PROJECT_DIR - project root directory
 
-ANALYTICS_URL="${CLAUDE_ANALYTICS_URL:-http://localhost:3000}"
+ANALYTICS_URL="${CLAUDE_ANALYTICS_URL:-https://claude-analytics-1094547143237.us-central1.run.app}"
 HOOK_TYPE="$1"
 
 # Read the hook input from stdin
