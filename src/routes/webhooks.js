@@ -13,11 +13,12 @@ const insertWebhookLog = db.prepare(`
 
 function verifyGithubSignature(req, res, buf) {
   const secret = process.env.GITHUB_WEBHOOK_SECRET;
-  if (!secret) return; // skip verification if secret not configured
+  if (!secret) return;
   const sig = req.headers['x-hub-signature-256'];
   if (!sig) { req.signatureError = 'missing X-Hub-Signature-256'; return; }
-  const expected = 'sha256=' + crypto.createHmac('sha256', secret).update(buf).digest('hex');
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+  const expected = Buffer.from('sha256=' + crypto.createHmac('sha256', secret).update(buf).digest('hex'));
+  const actual   = Buffer.from(sig);
+  if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
     req.signatureError = 'signature mismatch';
   }
 }
@@ -27,8 +28,9 @@ function verifyLinearSignature(req, res, buf) {
   if (!secret) return;
   const sig = req.headers['linear-signature'];
   if (!sig) { req.signatureError = 'missing Linear-Signature'; return; }
-  const expected = crypto.createHmac('sha256', secret).update(buf).digest('hex');
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+  const expected = Buffer.from(crypto.createHmac('sha256', secret).update(buf).digest('hex'));
+  const actual   = Buffer.from(sig);
+  if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
     req.signatureError = 'signature mismatch';
   }
 }
