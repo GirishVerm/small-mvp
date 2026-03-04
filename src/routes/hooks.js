@@ -136,7 +136,7 @@ router.post('/', (req, res) => {
         }
 
         // Sync Linear every 5 PostToolUse events (real-time observability)
-        const SYNC_EVERY_N_TOOLS = 5;
+        const SYNC_EVERY_N_TOOLS = 2;
         const { total_post } = db.prepare(
           `SELECT COUNT(*) as total_post FROM tool_events WHERE task_id = ? AND hook_type = 'PostToolUse'`
         ).get(taskId || '');

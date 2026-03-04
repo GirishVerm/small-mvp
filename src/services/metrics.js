@@ -11,20 +11,108 @@ function estimateTokens(charCount) {
 
 /**
  * Detect if tool output indicates an error.
+ * Covers: bash/shell, Claude Code native tools (Read/Glob/Grep/Edit),
+ * Node.js, Python, build tools, test runners, git, and network errors.
  */
 const ERROR_PATTERNS = [
-  /error:/i,
-  /failed to/i,
-  /exception/i,
+  // Generic error markers
+  /\berror:/i,              // "Error:", "SyntaxError:", "TypeError:", "npm error:"
+  /\berrors? found\b/i,     // "2 errors found", "errors found"
+  /failed to\b/i,           // "failed to compile", "failed to read"
+  /\bfailed\b/i,            // "build failed", "tests failed", "FAILED"
+  /fatal:/i,                // git "fatal:", clang "fatal error:"
+
+  // Exceptions & stack traces
+  /\bexception\b/i,
   /traceback/i,
+  /stack trace/i,
+
+  // File system — bash, Node.js, AND Claude Code native tools
   /ENOENT/,
   /EACCES/,
-  /permission denied/i,
-  /command failed/i,
-  /exit code [1-9]/i,
+  /EPERM/,
   /no such file/i,
-  /not found/i,
-  /syntax error/i,
+  /file not found/i,
+  /does not exist/i,        // Read: "File does not exist", Grep: "Path does not exist"
+  /no files found/i,        // Glob: "No files found"
+  /permission denied/i,
+  /cannot read/i,
+  /unable to read/i,
+  /could not open/i,
+
+  // Shell / process errors
+  /command not found/i,
+  /command failed/i,
+  /not a command/i,
+  /exit code [1-9]/i,
+  /exited with (code|status) [1-9]/i,
+  /killed/i,                // process killed / OOM
+
+  // Network errors
+  /ECONNREFUSED/,
+  /ECONNRESET/,
+  /ETIMEDOUT/,
+  /ENOTFOUND/,
+  /connection refused/i,
+  /connection timed out/i,
+  /network error/i,
+  /socket hang up/i,
+
+  // Python errors
+  /AttributeError/,
+  /TypeError/,
+  /ValueError/,
+  /ImportError/,
+  /ModuleNotFoundError/,
+  /KeyError/,
+  /IndexError/,
+  /NameError/,
+  /RuntimeError/,
+  /OSError/,
+  /IOError/,
+  /ZeroDivisionError/,
+
+  // JavaScript / Node.js errors
+  /ReferenceError/,
+  /RangeError/,
+  /SyntaxError/,
+  /Cannot find module/i,
+  /\bis not defined\b/i,    // "x is not defined"
+  /\bis not a function\b/i, // "x is not a function"
+  /\bcannot read propert/i, // "Cannot read properties of undefined"
+  /unexpected token/i,
+
+  // Build / compile errors
+  /build failed/i,
+  /compilation (failed|error)/i,
+  /cannot compile/i,
+  /linker error/i,
+
+  // Test runners (Jest, pytest, mocha, etc.)
+  /\d+ (test|spec)s? failed/i,  // "3 tests failed"
+  /test suite failed/i,
+  /assertion.*failed/i,
+  /AssertionError/,
+  /FAIL\s/,                 // Jest: "FAIL src/foo.test.js"
+  /passing.*failing/i,      // Mocha: "5 passing, 2 failing"
+
+  // Package / dependency errors
+  /not found/i,             // "module not found", "command not found", "package not found"
+  /unresolved import/i,
+  /missing (dependency|peer)/i,
+  /peer dep/i,
+
+  // Git errors
+  /merge conflict/i,
+  /\bCONFLICT\b/,
+  /rejected/i,              // "push rejected"
+  /cannot merge/i,
+  /\bdetached HEAD\b/i,
+
+  // Linters / type checkers
+  /\d+ error[s,]/i,          // "5 errors," from eslint / tsc
+  /type error/i,
+  /\bwarning.*error\b/i,    // warnings escalated to errors
 ];
 
 function isToolError(output) {

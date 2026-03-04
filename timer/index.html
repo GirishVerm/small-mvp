@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Countdown Timer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="timer" id="timer"></div>
+    <div class="controls">
+      <button id="startPauseBtn">Start</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <div class="history" id="history"></div>
+  </div>
+  <script>
+    var INITIAL_MINUTES = 25;
+    var INITIAL_SECONDS = 0;
+    var INITIAL_TOTAL = INITIAL_MINUTES * 60 + INITIAL_SECONDS;
+
+    var totalSeconds = INITIAL_TOTAL;
+    var running = false;
+    var intervalId = null;
+    var sessionStart = null;
+
+    var timerEl = document.getElementById('timer');
+    var startPauseBtn = document.getElementById('startPauseBtn');
+    var resetBtn = document.getElementById('resetBtn');
+    var historyEl = document.getElementById('history');
+
+    // --- History storage ---
+
+    function loadHistory() {
+      try {
+        return JSON.parse(localStorage.getItem('timer_history') || '[]');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveEntry(entry) {
+      var history = loadHistory();
+      history.unshift(entry); // newest first
+      localStorage.setItem('timer_history', JSON.stringify(history));
+    }
+
+    function clearHistory() {
+      localStorage.removeItem('timer_history');
+      renderHistory();
+    }
+
+    // --- Rendering ---
+
+    function render() {
+      var m = Math.floor(totalSeconds / 60);
+      var s = totalSeconds % 60;
+      timerEl.textContent = pad(m) + ':' + pad(s);
+      timerEl.classList.toggle('paused', !running);
+      startPauseBtn.textContent = running ? 'Pause' : 'Start';
+    }
+
+    function pad(n) {
+      return String(n).padStart(2, '0');
+    }
+
+    function fmtDuration(seconds) {
+      var m = Math.floor(seconds / 60);
+      var s = seconds % 60;
+      return pad(m) + ':' + pad(s);
+    }
+
+    function fmtTimestamp(iso) {
+      var d = new Date(iso);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
+        ' · ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    function renderHistory() {
+      var history = loadHistory();
+      if (history.length === 0) {
+        historyEl.innerHTML = '';
+        return;
+      }
+
+      var rows = history.map(function (e) {
+        var statusClass = e.status === 'completed' ? 'status-completed' : 'status-interrupted';
+        return '<div class="history-row">' +
+          '<span class="history-duration">' + fmtDuration(e.duration) + '</span>' +
+          '<span class="history-status ' + statusClass + '">' + e.status + '</span>' +
+          '<span class="history-time">' + fmtTimestamp(e.endedAt) + '</span>' +
+          '</div>';
+      }).join('');
+
+      historyEl.innerHTML =
+        '<div class="history-header">' +
+          '<span>History</span>' +
+          '<button id="clearBtn">Clear</button>' +
+        '</div>' +
+        '<div class="history-list">' + rows + '</div>';
+
+      document.getElementById('clearBtn').addEventListener('click', clearHistory);
+    }
+
+    // --- Timer logic ---
+
+    function tick() {
+      if (totalSeconds === 0) {
+        clearInterval(intervalId);
+        intervalId = null;
+        running = false;
+        recordSession('completed');
+        render();
+        return;
+      }
+      totalSeconds--;
+      render();
+    }
+
+    function recordSession(status) {
+      var elapsed = INITIAL_TOTAL - totalSeconds;
+      if (elapsed <= 0) return; // nothing ran
+      saveEntry({
+        duration: elapsed,
+        status: status,
+        endedAt: new Date().toISOString()
+      });
+      renderHistory();
+    }
+
+    startPauseBtn.addEventListener('click', function () {
+      if (running) {
+        clearInterval(intervalId);
+        intervalId = null;
+        running = false;
+      } else {
+        if (totalSeconds === 0) return;
+        intervalId = setInterval(tick, 1000);
+        running = true;
+      }
+      render();
+    });
+
+    resetBtn.addEventListener('click', function () {
+      var wasRunningOrPartial = running || totalSeconds < INITIAL_TOTAL;
+      clearInterval(intervalId);
+      intervalId = null;
+      running = false;
+      if (wasRunningOrPartial) {
+        recordSession('interrupted');
+      }
+      totalSeconds = INITIAL_TOTAL;
+      render();
+    });
+
+    render();
+    renderHistory();
+  </script>
+</body>
+</html>
