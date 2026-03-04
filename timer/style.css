@@ -1,0 +1,129 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f0f0f;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+}
+
+button {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.6rem 2rem;
+  border: 2px solid #f0f0f0;
+  background: transparent;
+  color: #f0f0f0;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, color 0.15s;
+}
+
+button:hover {
+  background: #f0f0f0;
+  color: #0f0f0f;
+}
+
+.timer {
+  font-size: clamp(5rem, 20vw, 14rem);
+  font-weight: 700;
+  color: #f0f0f0;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  transition: opacity 0.2s;
+}
+
+.timer.paused {
+  opacity: 0.35;
+}
+
+/* History */
+.history {
+  width: 100%;
+  max-width: 420px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #555;
+  border-bottom: 1px solid #222;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.history-header button {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.7rem;
+  border-color: #333;
+  color: #555;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+}
+
+.history-header button:hover {
+  background: #333;
+  color: #f0f0f0;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: 5rem 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #888;
+  padding: 0.25rem 0;
+}
+
+.history-duration {
+  font-variant-numeric: tabular-nums;
+  color: #bbb;
+}
+
+.status-completed {
+  color: #4caf86;
+}
+
+.status-interrupted {
+  color: #888;
+}
+
+.history-time {
+  font-size: 0.75rem;
+  color: #555;
+  text-align: right;
+}

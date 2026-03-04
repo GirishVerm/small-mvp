@@ -89,9 +89,24 @@ const HEALTH_LABELS = {
 const labelCache = new Map();
 
 function computeHealthLevel(metrics) {
-  const { error_rate, edit_success_rate } = metrics;
-  if (error_rate > 0.3 || edit_success_rate < 0.5) return 'struggling';
-  if (error_rate >= 0.1 || edit_success_rate <= 0.8) return 'friction';
+  const { error_rate, edit_success_rate, bash_retries, rework_index, total_tools } = metrics;
+
+  // Need a minimum sample before penalising edit_success_rate —
+  // a single failed edit on a fresh task shouldn't immediately flag struggling.
+  const enoughEdits = total_tools >= 4;
+
+  // Struggling: clear signal something is badly wrong
+  if (error_rate > 0.3)                        return 'struggling';
+  if (enoughEdits && edit_success_rate < 0.5)  return 'struggling';
+  if (bash_retries >= 3)                       return 'struggling';
+  if (rework_index > 0.5)                      return 'struggling';
+
+  // Friction: elevated errors or repeated corrections
+  if (error_rate >= 0.1)                       return 'friction';
+  if (enoughEdits && edit_success_rate <= 0.8) return 'friction';
+  if (bash_retries >= 1)                       return 'friction';
+  if (rework_index > 0.2)                      return 'friction';
+
   return 'smooth';
 }
 
